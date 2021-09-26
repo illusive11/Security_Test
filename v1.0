@@ -1,0 +1,161 @@
+#include <iostream>
+#include <stdio.h>
+#include <fstream>
+#include <cstdlib>
+#include <vector>
+#include <cmath>
+#include <Windows.h>
+#include <Chrono>
+#include <thread>
+#include <ios>
+#include <limits>
+#include <algorithm>
+#include <unordered_map>
+#include <sstream>
+#include <random>
+#include <ctime>
+
+std::string Input_Password;
+const float s_key = 0x283126;
+int menu_input;
+
+size_t hash(std::string str) {
+	std::hash<std::string>
+		hasher;
+
+	size_t hash = hasher(str);
+	return hash;
+}
+
+std::string salt_gen(std::size_t length)
+{
+	const std::string characters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+	std::random_device random_device;
+	std::mt19937 generator(random_device());
+	std::uniform_int_distribution<> distribution(0, characters.size() - 1);
+
+	std::string random_string;
+
+	for (std::size_t i = 0; i < length; ++i)
+	{
+		random_string += characters[distribution(generator)];
+	}
+
+	return random_string;
+}
+
+void encrypt(std::string& s, float key)
+{
+	std::string retr;
+	for (int i = 0; i < s.length(); i++)
+	{
+		retr += s.at(i) + key;
+	}
+	s = retr;
+}
+
+void decrypt(std::string& s, float key)
+{
+	std::string retr;
+	for (int i = 0; i < s.length(); i++)
+	{
+		retr += s.at(i) - key;
+	}
+	s = retr;
+}
+
+class hasher {
+	public:
+		std::string salt = salt_gen(32), user, ch;
+		unsigned long long int hash_Pass, hash_Input;
+
+		void get_user() {
+			std::cout << "Username: "; std::cin >> user;
+			std::fstream info; info.open("Users\\" + user + ".txt", std::ios::in);
+			if (!info.is_open()) {
+				std::cout << "Username not recognised...";
+				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				std::cout << "\x1B[2J\x1B[H"; get_user();
+			} else if (info.is_open()) {
+				while (1) {
+					info >> ch;
+					if (info.eof())
+						break;
+				}
+				hash_pass();
+				get_pass();
+			}
+		}
+
+		void get_pass() {
+			std::cout << "Password: "; std::cin >> Input_Password;
+			hash_input();
+			if (hash_Input != hash_Pass) {
+				std::cout << "\nIncorrect password given...";
+				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				std::cout << "\x1B[2J\x1B[H"; std::cout << "Username: " << user << std::endl; get_pass();
+			}
+			else if (hash_Input == hash_Pass) {
+				std::cout << "\nLogging in...";
+				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				std::cout << "\x1B[2J\x1B[H";
+			}
+		}
+
+		void hash_pass() {
+			decrypt(ch, s_key);
+			ch = ch + salt;
+			encrypt(ch, 0x184461);
+			hash_Pass = hash(ch);
+		}
+
+		void hash_input() {
+			Input_Password = Input_Password + salt;
+			encrypt(Input_Password, 0x184461);
+			hash_Input = hash(Input_Password);
+		}
+};
+
+void Registration() {
+	std::string user, pass;
+	std::cout << "Username: "; std::cin >> user;
+	std::cout << "Password: "; std::cin >> pass;
+	std::cout << "\x1B[2J\x1B[H";
+	encrypt(pass, s_key);
+	std::fstream info; info.open("Users\\" + user + ".txt", std::ios::app);
+	info << pass << std::endl;
+	info.close();
+}
+
+void recover() {
+	std::string user, pass;
+	std::cout << "Username: "; std::cin >> user;
+	std::fstream info; info.open("Users\\" + user + ".txt", std::ios::out, std::ios::trunc);
+	if (!info.is_open()) {
+		std::cout << "Username not recognised...";
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		std::cout << "\x1B[2J\x1B[H"; recover();
+	}
+	else if (info.is_open()) {
+		std::cout << "New Password: "; std::cin >> pass;
+		encrypt(pass, s_key); info << pass;
+		std::cout << "\x1B[2J\x1B[H";
+	}
+}
+
+int main() {
+	hasher hasher;
+
+	std::cout << "1) Login\n2) Register\n3) Recover Account\nChoice: "; std::cin >> menu_input;
+	if (menu_input == 1) {
+		std::cout << "\x1B[2J\x1B[H";
+		hasher.get_user();
+	} else if (menu_input == 2) {
+		std::cout << "\x1B[2J\x1B[H";
+		Registration(); main();
+	} else if (menu_input == 3) {
+		std::cout << "\x1B[2J\x1B[H";
+		recover(); main();
+	}
+}
